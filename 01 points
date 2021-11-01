@@ -1,0 +1,107 @@
+
+# Clean all
+rm(list = ls())
+
+# Set working directory to current script's location.
+fileloc <- dirname(rstudioapi::getSourceEditorContext()$path)
+setwd(fileloc)
+rm(fileloc)
+
+getwd()
+
+# Libraries
+library(tidyverse)
+library(ggrepel)
+library(sf)
+library(rnaturalearth)
+library(ggspatial)
+library(here)
+
+# Set the theme for the map
+theme_set(theme_light())
+
+# Open the world map
+world <- ne_countries(scale = "medium", returnclass = "sf")
+
+# Open volcanos data:
+# https://datos.gob.mx/busca/dataset/centro-nacional-de-prevencion-de-desastres/resource/d9e2d10e-4f0e-4a52-8980-7293aff61b4c
+volcanos <- here('Volcanes_activos/Volcanes activos.shp') %>% st_read()
+
+# Lets plot the general map
+world %>% ggplot() + geom_sf()
+world %>% ggplot() + geom_sf(color = "black", fill = "darkorange")
+world %>% ggplot() + geom_sf(color = "black", aes(fill = gdp_md_est))
+
+# Subset the map for Mexico
+ggplot(data = world) +
+  geom_sf() +
+  coord_sf(xlim = c(-120, -85), ylim = c(12, 33.97), expand = FALSE)
+
+# We can add the North arrow
+ggplot(data = world) +
+  geom_sf() +
+  annotation_scale(location = "bl", width_hint = 0.5) +
+  annotation_north_arrow(location = "bl", which_north = "true", 
+                         pad_x = unit(0.75, "in"), pad_y = unit(0.5, "in"),
+                         style = north_arrow_fancy_orienteering) +
+  coord_sf(xlim = c(-120, -85), ylim = c(12, 33.97))
+
+# The names of other countries
+world_points<- st_centroid(world)
+world_points <- cbind(world, st_coordinates(st_centroid(world$geometry)))
+
+ggplot(data = world) +
+  geom_sf() +
+  geom_text(data= world_points,aes(x=X, y=Y, label=name),
+            color = "darkblue", fontface = "bold", check_overlap = FALSE) +
+  annotate(geom = "text", x = -90, y = 26, label = "Gulf of Mexico", 
+           fontface = "italic", color = "grey22", size = 6) +
+  coord_sf(xlim = c(-120, -85), ylim = c(12, 33.97), expand = FALSE) +
+  labs(x="",y="")
+
+# With color
+ggplot(data = world) + 
+  geom_sf(fill= "antiquewhite") + 
+  geom_text(data= world_points, aes(x=X, y=Y, label=name), 
+            color = "darkblue", fontface = "bold", 
+            check_overlap = FALSE) + 
+  annotate(geom = "text", x = -90, y = 26, label = "Gulf of Mexico", 
+           fontface = "italic", color = "grey22", size = 6) + 
+  annotation_scale(location = "bl", width_hint = 0.5) + 
+  annotation_north_arrow(location = "bl", 
+                         which_north = "true", 
+                         pad_x = unit(0.75, "in"), 
+                         pad_y = unit(0.5, "in"), 
+                         style = north_arrow_fancy_orienteering) + 
+  coord_sf(xlim = c(-120, -85), ylim = c(12, 33.97), expand = FALSE) + 
+  xlab("Longitude") + 
+  ylab("Latitude") + 
+  ggtitle("Map of the Gulf of Mexico and the Caribbean Sea") + 
+  theme(panel.grid.major = element_line(color = gray(.5), linetype = "dashed", size = 0.5), 
+        panel.background = element_rect(fill = "aliceblue"))
+
+# All together
+ggplot(data = world) + 
+  geom_sf(fill= "antiquewhite") + 
+  annotate(geom = "text", x = -90, y = 26, label = "Gulf of Mexico", 
+           fontface = "italic", color = "grey22", size = 5) + 
+  annotation_scale(location = "bl", width_hint = 0.5) + 
+  annotation_north_arrow(location = "bl", 
+                         which_north = "true", 
+                         pad_x = unit(0.75, "in"), 
+                         pad_y = unit(0.5, "in"), 
+                         style = north_arrow_fancy_orienteering) + 
+  geom_sf(data = volcanos, alpha=0.5, color = "red") +
+  coord_sf(xlim = c(-120, -85), ylim = c(12, 33.97), expand = FALSE) + 
+  xlab("Longitude") + 
+  ylab("Latitude") + 
+  ggtitle("Map of Active Mexican Volcanoes") + 
+  theme(panel.grid.major = element_line(color = gray(.5), linetype = "dashed", size = 0.5), 
+        panel.background = element_rect(fill = "aliceblue"))
+
+# Save the image
+p <- last_plot()
+ggsave('volcano.png',
+       width = 8, height = 4.5, type = "cairo-png")
+
+
