@@ -1,0 +1,49 @@
+
+# Clean all
+rm(list = ls())
+
+# Set working directory to current script's location.
+fileloc <- dirname(rstudioapi::getSourceEditorContext()$path)
+setwd(fileloc)
+rm(fileloc)
+
+getwd()
+
+# Libraries
+library(tidyverse)
+library(ggrepel)
+library(sf)
+library(here)
+library(ggspatial)
+
+# Open the data
+nevado <- here('D:/Mapas/Curvas de nivel/Nevado.shp') %>% st_read()
+
+# Simpple plot
+nevado %>% ggplot() + 
+  geom_sf(fill= "antiquewhite", alpha = 0.4, size = 0.1) + 
+  theme_bw()
+
+# Last version
+ggplot(data = nevado) + 
+  geom_sf(fill= "#eadcd9", alpha = 0.4, size = 0.1) + 
+  annotation_north_arrow(location = "bl", 
+                         which_north = "true", 
+                         pad_x = unit(0.75, "in"), 
+                         pad_y = unit(0.5, "in"), 
+                         style = north_arrow_nautical(fill = c("grey20", "white"),
+                                                      line_col = "grey10",
+                                                      text_family = "ArcherPro Book")) + 
+  xlab("Longitude") + 
+  ylab("Latitude") + 
+  ggtitle("Day 2: Lines - Contour Map of Nevado de Colima (Mexico)") +
+  annotate("text", x = Inf, y = -Inf, label = "@daniel_isita",
+           hjust=1.1, vjust=-1.1, col="white", cex=5,
+           fontface = "bold", alpha = 0.85) +
+  theme_bw() +
+  theme(panel.background = element_blank())
+
+# Save the image
+p <- last_plot()
+ggsave('nevado.png',
+       width = 8, height = 4.5, type = "cairo-png")
