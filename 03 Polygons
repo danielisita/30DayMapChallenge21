@@ -1,0 +1,61 @@
+
+# Clean all
+rm(list = ls())
+
+# Set working directory to current script's location.
+fileloc <- dirname(rstudioapi::getSourceEditorContext()$path)
+setwd(fileloc)
+rm(fileloc)
+
+getwd()
+
+# Libraries
+library(tidyverse)
+library(sf)
+library(rnaturalearth) # Map of all countries
+library(rnaturalearthdata) # Data of all countries
+library(RColorBrewer) # Colors
+
+# Download the data from:
+# https://www.transparency.org/en/cpi/2020/index/nzl#
+
+# Unzip the file
+unzip('CPI_FULL_DATA_2021-01-27-162209.zip')
+
+# Open the data:
+corruption <- readxl::read_excel("CPI2020_GlobalTablesTS_210125.xlsx", 
+                         skip = 1) %>% 
+  rename(CPI = `CPI score 2020`) %>% 
+  select(Country, CPI)
+
+# Open the dataset that contains the geometries
+world <- ne_countries(scale = "medium", returnclass = "sf") %>% 
+  rename(Country = sovereignt) 
+
+# Merge the data
+plot_data <- left_join(world, corruption )
+
+# Colors for the map
+col_strip <- brewer.pal(11, "RdBu")
+
+# Plot
+ggplot(data = plot_data) +
+  geom_sf(aes(fill = CPI)) +
+  scale_fill_gradientn(colors = (col_strip)) +
+  labs(title = "Day 3: Polygons ~ Corruption Perception Index, 2020",
+       caption = "Own elaboration from data provided by Transparency International",
+       x = "", y = "") +
+  theme(text = element_text(size = 10),
+        legend.text = element_text(size = 12),
+        plot.margin = margin(0,0,0,0, "cm")) +
+  annotate("text", x = Inf, y = -Inf, label = "@daniel_isita",
+           hjust=1.1, vjust=-1.1, col="#f2aa9e", cex=2,
+           fontface = "bold", alpha = 0.85) +
+  theme_bw()
+
+# Save the image
+p <- last_plot()
+ggsave('cpi.png',
+       width = 8, height = 4.5, type = "cairo-png")
+
+  
