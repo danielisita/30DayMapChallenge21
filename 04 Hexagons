@@ -1,0 +1,64 @@
+# Set working directory to current script's location.
+fileloc <- dirname(rstudioapi::getSourceEditorContext()$path)
+setwd(fileloc)
+rm(fileloc)
+
+getwd()
+
+# We need to install mxmaps library
+# if (!require("devtools")) {
+#   install.packages("devtools")
+# }
+# devtools::install_github("diegovalle/mxmaps")
+
+# Libraries
+library('tidyverse')
+library("mxmaps")
+library("viridis")
+library("scales")
+
+# The data for the states:
+data("df_mxstate_2020")
+
+# The data for traffic accidents (https://www.inegi.org.mx/programas/accidentes/#Tabulados):
+traff_acc <- read_csv("alcohol.csv", skip = 9) 
+
+# We need to tranform the df
+accid <- traff_acc %>% 
+  rename(region = X1,
+         state_name_official = X2) %>% 
+  filter(!is.na(Total)) %>% 
+  filter(!is.na(region)) %>% 
+  mutate(value = Si/Total)
+
+# The map
+mxhexbin_choropleth(accid, num_colors = 1,
+                    title = "Alcohol and Accidentes",
+                    legend = "%")
+
+# The last version
+mxhexbin_choropleth(accid, 
+                    num_colors = 1,
+                    label_color = "white",
+                    shadow_color = "black",
+                    title = "Percentage of Car Accidents Involving Alcohol",
+                    legend = "%",
+                    label_size = 3.8) +
+  scale_fill_viridis("Percentage", labels = percent) +
+  theme_bw() +
+  theme(
+    plot.title = element_text(face = "bold", size = 8),
+    legend.background = element_rect(fill = "white", size = 4, colour = "white"),
+    legend.justification = c(0, 1),
+    legend.position = c(1.05, 0.8),
+    axis.ticks = element_line(colour = "grey70", size = 0.2),
+    panel.grid.major = element_line(colour = "grey70", size = 0.2),
+    panel.grid.minor = element_blank()
+  ) +
+  xlab(NULL) + ylab(NULL) +
+  ggthemes::theme_base()
+
+# Save the image
+p <- last_plot()
+ggsave('hexs.png',
+       width = 8, height = 4.5, type = "cairo-png")
