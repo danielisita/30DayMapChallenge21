@@ -1,0 +1,111 @@
+
+# Libraries
+library('tidyverse')
+library("mxmaps")
+library("viridis")
+library("scales")
+library("leaflet")
+library("readxl")
+library("geojsonio")
+library("rgdal")
+library("rgeos")
+library("maptools")
+library("ggrepel")
+library("sf")
+
+# Download the data from: https://datos.gob.mx/busca/dataset/temperatura-maxima-excel
+# Unzip the folder
+unzip('Temperatura_Maxima_Excel.zip')
+
+# Open the data for 2020
+temp2020 <- read_excel("Temperatura_Maxima_Excel/2020Tmax.xlsx", 
+                       col_types = c("text", "numeric", "numeric", 
+                                     "numeric", "numeric", "numeric", 
+                                     "numeric", "numeric", "numeric", 
+                                     "numeric", "numeric", "numeric", 
+                                     "numeric", "numeric"), skip = 1)
+
+# We just need two variables
+df <- temp2020 %>% filter(ENTIDAD != "NACIONAL") %>% 
+  mutate(entidad = str_to_title(ENTIDAD),
+         value = ANUAL) %>% 
+  rowwise() %>% 
+  mutate(max = max(c_across(ENE:DIC))) %>% 
+  select(entidad, max)
+
+# The map
+df_mxstate_2020$value <- df$max
+
+map <- MXStateChoropleth$new(df_mxstate_2020)
+map$title <- "Max Temperature, 2020"
+map$set_num_colors(1)
+map$render()
+
+data("df_mxstate_2020")
+df_mxstate_2020$value <- (df$max)
+
+font_col <- '#FFFFFF'
+chart_font <- "Optimus Princeps"
+
+# The Map
+m <- mxstate_choropleth(df_mxstate_2020,
+                   title = "Maximum Monthly Temperature, by State",
+                   legend = "Max. Temp") +
+  scale_fill_brewer(palette = "OrRd", name = "Temperature (°C)", direction = 1,
+                    guide = guide_legend(order = 99)) +
+  labs(x = NULL, y = NULL, legend = "hid") +
+  theme_void() +
+  annotate("text", x = Inf, y = -Inf, label = "@daniel_isita",
+           hjust=1.1, vjust=-1.1, col = "#b5d6bc", cex=3,
+           fontface = "bold", alpha = 0.55) +
+  theme(plot.title = element_text(family = chart_font,
+                                  color = "black",
+                                  size = 18, face = "bold", hjust = 0.5,
+                                  vjust = 2.5),
+        legend.text = element_text(color = "black", size = 11,
+                                   face = "bold"),
+        legend.title = element_text(color = "black", size = 12,
+                                    face = "bold"),
+        legend.key.size = unit(1,'lines'),
+        panel.border = element_rect(colour = "black", fill = NA, size = 3),
+        plot.margin = unit(c(0.6,1.6,1,1.6),"cm"),
+        plot.background = element_rect(fill = "white"))
+
+m
+
+# Lets put the name of the sates following Diego Valle's tutorial:
+# https://www.diegovalle.net/mxmaps/articles/articles/states.html
+
+data("mxstate.topoJSON")
+data("df_mxstate_2020")
+
+tmpdir <- tempdir()
+
+# Have to use RJSONIO or else the topojson isn't valid
+write(RJSONIO::toJSON(mxstate.topoJSON), file.path(tmpdir, "state.topojson"))
+states <- topojson_read(file.path(tmpdir, "state.topojson"))
+
+# Convert to SpatialPolygonsDataFrame
+states <- as_Spatial(states)
+
+# Make sure the coordinates of the labels are in the correct order
+df_mxstate_2020 <- cbind(df_mxstate_2020, 
+                         data.frame(lon = coordinates(states[match(df_mxstate_2020$region, 
+                                                                   states$id),])[,1],
+                                    lat = coordinates(states[match(df_mxstate_2020$region, 
+                                                                   states$id),])[,2]))
+df_mxstate_2020$group <- df_mxstate_2020$state_abbr
+
+# Final Map
+m + geom_text_repel(data = df_mxstate_2020, 
+                    aes(lon, lat, 
+                        label = state_abbr), 
+                    fontface = "bold",
+                    size = 2.5, 
+                  box.padding = unit(0.4, 'lines'),
+                  arrow = arrow(length = unit(0.01, 'npc')),
+                  force = .1
+                  )
+
+ggsave('temperature.png',
+       width = 8, height = 4.5, type = "cairo-png")
