@@ -1,0 +1,81 @@
+
+# Libraries
+library(tidyverse)
+library(readr)
+library(mxmaps)
+library(viridis)
+library(scales)
+library(magick)
+
+# Download the data from INEGI (CUESTIONARIO DE ENCODAT 2016-2017 -> INDIVIDUAL)
+# https://encuestas.insp.mx/ena/encodat2017.php
+
+# Here is the methodological document:
+# https://encuestas.insp.mx/ena/encodat2017/cuestionario_encodat_individual_2016_2017.pdf
+
+# Unzip the folder
+unzip('ENCODAT_2016_2017_Individual.csv.zip')
+
+# Open the dataset selecting only a few of the 1500 survey variables:
+df <- read_delim("ENCODAT_2016_2017_Individual.csv", 
+                 ";", 
+                 escape_double = FALSE, 
+                 trim_ws = TRUE) %>% 
+  select(c(1:37), di1a, di4a, di4a_1, di4a_2, di5a)
+
+# We compute the average age of first marijuana use
+edad <- df %>% 
+  filter(di1a == 1) %>% # All that has smoked weed
+  filter(di4a != 111 & di4a != 119 & di4a != 120 & di4a != 999) %>% 
+  group_by(entidad) %>% 
+  summarise(promedio = mean(di4a, na.rm = T))
+
+# The merge
+df_mxstate_2020$value <- edad$promedio
+
+# Some colors for the plot
+font_col <- '#FFFFFF'
+chart_font <- "Optimus Princeps"
+
+# The Map
+m <- mxstate_choropleth(df_mxstate_2020,
+                        title = "First Time Smoking Weed") +
+  scale_fill_brewer(palette = "Greens", name = "Avg. Age:", direction = 1,
+                    guide = guide_legend(order = 99)) +
+  labs(x = NULL, y = NULL, legend = "hid") +
+  theme_void() +
+  annotate("text", x = Inf, y = -Inf, label = "@daniel_isita",
+           hjust=1.1, vjust=-1.1, col = "#b5d6bc", cex=3,
+           fontface = "bold", alpha = 0.55) +
+  theme(plot.title = element_text(family = chart_font,
+                                  color = "black",
+                                  size = 18, face = "bold", hjust = 0.5,
+                                  vjust = 2.5),
+        plot.subtitle = element_text(color = "black",
+                                     family = chart_font,
+                                     vjust = 2.5, face = "bold",
+                                     size = 11, hjust = 0.5, margin = margin(2, 0, 5, 0)),
+        legend.text = element_text(color = "black", size = 11,
+                                   face = "bold"),
+        legend.title = element_text(color = "black", size = 12,
+                                    face = "bold"),
+        legend.key.size = unit(1,'lines'),
+        panel.border = element_rect(colour = "black", fill = NA, size = 3),
+        plot.margin = unit(c(0.6,1.6,1,1.6),"cm"),
+        plot.background = element_rect(fill = "white")) 
+
+# Import an image
+img <- magick::image_read('weed.jpg')
+magick::image_info(img)
+print(img)
+
+image <- image_fill(img, 'none')
+raster <- as.raster(image)
+
+# Put the image into the plot
+m + annotation_raster(raster, -97,-87,26,32)
+
+# Save the plot
+ggsave('weed_map.png',
+       width = 8, height = 4.5, type = "cairo-png")
+
