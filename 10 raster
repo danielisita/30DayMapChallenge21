@@ -1,0 +1,54 @@
+
+# I followed:
+# https://github.com/shandiya/30DayMapChallenge/blob/main/submissions/10_raster/10_raster.R
+
+# Libraries
+library(here)
+library(elevatr)
+library(rnaturalearth)
+library(sf)
+library(raster)
+library(tidyverse)
+library(scico)
+
+# Extract the data
+mex <- ne_states(country = "Mexico", returnclass = "sf")
+
+# If you get an error, try this:
+# devtools::install_github("ropensci/rnaturalearthhires") 
+
+# The elevation
+elev <- get_elev_raster(locations = mex, z = 7, clip = "locations", serial = TRUE)
+
+# Save elevation file:
+writeRaster(elev, 
+            filename = here("data", "elev.tif"), 
+            options = c("COMPRESS = DEFLATE", "PREDICTOR = 2", "ZLEVEL = 7"))
+
+# If you want to read it again:
+# elev <- raster(here("data", "elev.tif"))
+
+# Wrangle some bits of the raster
+cropped_elev <- crop(elev, mex)
+elev_df <- as.data.frame(cropped_elev, xy = TRUE)
+colnames(elev_df)[3] <- "elevation"
+elev_complete <- elev_df[complete.cases(elev_df),]
+
+# Plot 
+p <- ggplot() +                         
+  geom_sf(data = mex, fill = NA, colour = NA) +
+  geom_tile(data = elev_complete, aes(x = x, y = y, fill = elevation)) +
+  scale_fill_scico(palette = "vik", direction = -1) +
+  coord_sf() +
+  labs(caption = "<span style='font-size:75px;'>Mexico</span><br>
+        <span style='font-size:35px;'>Orography</span><br><br>
+       <span style='font-size:15px;'>#30DayMapChallenge Day 10 : Raster | @daniel_isita</span><br>") + 
+  theme_void() + 
+  theme(legend.position = "none",
+        plot.background = element_rect(fill = "#262424", colour = NA),
+        plot.caption = ggtext::element_markdown(hjust = .5, 
+                                                family = "Operator SSm Book", 
+                                                face = "bold", 
+                                                color = "#f0f0f0"))
+
+ggsave('output/mex_raster4.png', width = 10, height = 10, type = "cairo-png")
